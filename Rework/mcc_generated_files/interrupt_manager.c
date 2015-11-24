@@ -1,17 +1,19 @@
 /**
-  Generated Pin Manager File
+  @Generated Interrupt Manager File
 
-  Company:
+  @Company:
     Microchip Technology Inc.
 
-  File Name:
-    pin_manager.c
+  @File Name:
+    interrupt_manager.c
 
-  Summary:
-    This is the Pin Manager file generated using MPLAB® Code Configurator
+  @Summary:
+    This is the Interrupt Manager file generated using MPLAB® Code Configurator
 
-  Description:
-    This header file provides implementations for pin APIs for all pins selected in the GUI.
+  @Description:
+    This header file provides implementations for global interrupt handling.
+    For individual peripheral handlers please see the peripheral driver for
+    all modules selected in the GUI.
     Generation Information :
         Product Revision  :  MPLAB® Code Configurator - v2.25.2
         Device            :  PIC18F24K22
@@ -44,27 +46,28 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 (INCLUDING BUT NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
  */
 
-#include <xc.h>
-#include "pin_manager.h"
+#include "interrupt_manager.h"
+#include "mcc.h"
 
-void PIN_MANAGER_Initialize(void) {
-    LATA = 0x00;
-    TRISA = 0xD0;
-    ANSELA = 0x00;
+void INTERRUPT_Initialize(void) {
+    // Disable Interrupt Priority Vectors (16CXXX Compatibility Mode)
+    RCONbits.IPEN = 0;
 
-    LATB = 0x06;
-    TRISB = 0xFF;
-    ANSELB = 0x09;
-    WPUB = 0x00;
+    // Clear peripheral interrupt priority bits (default reset value)
 
-    LATC = 0x00;
-    TRISC = 0xC0;
-    ANSELC = 0x00;
-
-    INTCON2bits.nRBPU = 0x01;
-
-
+    // SSPI
+    IPR3bits.SSP2IP = 0;
 }
+
+void interrupt INTERRUPT_InterruptManager(void) {
+    // interrupt handler
+    if (PIE3bits.SSP2IE == 1 && PIR3bits.SSP2IF == 1) {
+        I2C2_ISR();
+    } else {
+        //Unhandled Interrupt
+    }
+}
+
 /**
  End of File
  */

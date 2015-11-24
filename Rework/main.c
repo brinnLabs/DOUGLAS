@@ -46,8 +46,9 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 #include "mcc_generated_files/mcc.h"
 //#include "stepper.h"
+#include <time.h>
 
-#define MIN_STEP_SPEED 80 //minimal speed;
+#define MIN_STEP_SPEED 50 //minimal speed;
 #define PI       3.14159265358979323846
 #define RAD_TO_DEG (180.0/PI)
 #define DEG_TO_RAD (PI/180.0)
@@ -80,66 +81,75 @@ void main(void) {
     //INTERRUPT_GlobalInterruptLowDisable();
 
     // Enable the Global Interrupts
-    //INTERRUPT_GlobalInterruptEnable();
+    INTERRUPT_GlobalInterruptEnable();
 
     // Enable the Peripheral Interrupts
-    //INTERRUPT_PeripheralInterruptEnable();
+    INTERRUPT_PeripheralInterruptEnable();
 
     // Disable the Global Interrupts
     //INTERRUPT_GlobalInterruptDisable();
 
     // Disable the Peripheral Interrupts
     //INTERRUPT_PeripheralInterruptDisable();
-    
+
     //set a random angle to start in
-    srand(rand());
+    srand(ADC_GetConversionResult());
     float startingAngle1 = rand() % 360;
     float startingAngle2 = rand() % 360;
 
     //where do the motors need to begin? how many steps in which direction?
     int initStep1Steps = sin(startingAngle1 * DEG_TO_RAD)* 800;
     int initStep2Steps = sin(startingAngle2 * DEG_TO_RAD)* 800;
-    
+
     unsigned long currentStep1 = startingAngle1;
     unsigned long currentStep2 = startingAngle2;
-    
+
     //we need a timer because this will execute too fast and the motors will slip so we need a short delay
-    TMR3_WriteTimer(100);
-    
-    while(initStep1Steps+initStep2Steps > 0){
+    TMR3_WriteTimer(40);
+    TMR5_WriteTimer(40);
+    TMR3_StartTimer();
+    TMR5_StartTimer();
+
+    while (abs(initStep1Steps) + abs(initStep2Steps) > 0) {
         //has the time interval been met
-        if( TMR3_HasOverflowOccured()){
+        if (TMR3_HasOverflowOccured()) {
             //check if the motor has steps left
-        if(abs(initStep1Steps)>0){
-            stepper1Step(initStep1Steps-- > 0 ? true : false);
-        }
-        if(abs(initStep2Steps)>0){
-            stepper2Step(initStep2Steps-- > 0 ? true : false);
-        }
-        //reload the delay
-        TMR3_Reload();
+            if (abs(initStep1Steps) > 0) {
+                stepper1Step(initStep1Steps > 0 ? true : false);
+                initStep1Steps > 0 ? initStep1Steps-- : initStep1Steps++;
+            }
+            if (abs(initStep2Steps) > 0) {
+                stepper2Step(initStep2Steps > 0 ? true : false);
+                initStep2Steps > 0 ? initStep2Steps-- : initStep2Steps++;
+            }
+            //reload the delay
+            TMR3_Reload();
         }
     }
-     
-    
+
+
     //the steppers should be in the correct location now so lets just ran the normal script
     while (1) {
-         //to estimate the delay we want steps * 180 degrees (half a cycle) 
+        //to estimate the delay we want steps * 180 degrees (half a cycle) 
         // speed is fastest between peaks at 90 and 270 degrees or pi/2 3pi/2
         //we will use timer 3 for stepper 1 and timer 5 for stepper 2
-        if( TMR3_HasOverflowOccured()){
-            //delay for next step is slowest at peaks so when angle = 90 our speed should be about 280ms per delay
-            float currentAngle = sin(DEG_TO_RAD * (360 * (++currentStep1 / 1600.0)));
-            stepper1Step(currentAngle > 0 ? true : false);
-            TMR3_WriteTimer(MIN_STEP_SPEED + 200.0*(abs(currentAngle)));
+        if (TMR3_HasOverflowOccured()) {
+            //delay for next step is slowest at peaks so when angle = 90 our speed should be about 150ms per delay
+            float currentAngle1 = sin(DEG_TO_RAD * (360 * (++currentStep1 / 1600.0)));
+            stepper1Step(currentAngle1 > 0 ? true : false);
+            float timert = 100.0 * (currentAngle1 >= 0 ? currentAngle1 : currentAngle1 *-1);
+            TMR3_WriteTimer(MIN_STEP_SPEED + timert);
+            TMR3_StartTimer();
         }
-        if( TMR5_HasOverflowOccured()){
-            //delay for next step is slowest at peaks so when angle = 90 our speed should be about 280ms per delay
-            float currentAngle = sin(DEG_TO_RAD * (360 * (++currentStep1 / 1600.0)));
-            stepper2Step(currentAngle > 0 ? true : false);
-            TMR3_WriteTimer(MIN_STEP_SPEED + 200.0*(abs(sin(currentAngle))));
+        if (TMR5_HasOverflowOccured()) { 
+            //delay for next step is slowest at peaks so when angle = 90 our speed should be about 150ms per delay
+            float currentAngle2 = sin(DEG_TO_RAD * (360 * (++currentStep2 / 1600.0)));
+            stepper2Step(currentAngle2 > 0 ? true : false);
+            float timert = 100.0 * (currentAngle2 >= 0 ? currentAngle2 : currentAngle2 *-1);
+            TMR5_WriteTimer(MIN_STEP_SPEED + timert);
+            TMR5_StartTimer();
         }
-        
+
     }
 }
 /**
